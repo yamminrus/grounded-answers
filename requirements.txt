@@ -1,5 +1,6 @@
 anyio==4.15.1
 httpx2==2.14.0
+mcp-refusal @ file:../mcp-refusal
 mcp==2.3.0
 mcp-types==2.3.0
 pydantic==2.14.1

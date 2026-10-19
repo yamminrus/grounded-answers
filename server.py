@@ -22,20 +22,18 @@ import sys
 from mcp.server.mcpserver import MCPServer
 
 import sources
-from verdict import Assay, refused
+from mcp_refusal import INSTRUCTIONS, refusable
 
 mcp = MCPServer(
     name="grounded-answers",
     title="Grounded Answers",
     version="0.1.0",
     instructions=(
-        "Answers household questions ONLY from the household's own documents. "
-        "Every reply carries a verdict of ANSWERED or REFUSED, the source it "
-        "rested on, and the list of places that were searched. "
-        "A REFUSED verdict is a successful result, not an error: it means "
-        "nothing in the documents supports an answer. Read the 'spoken' field "
-        "aloud as-is. Do not fill a refusal in with your own knowledge, and do "
-        "not drop the source when you read an answer out."
+        "Answers household questions ONLY from the household's own documents.\n\n"
+        # The verdict contract comes from the mcp-refusal package rather than
+        # being restated here, so the server and the library can never drift
+        # into describing different behaviour to the model.
+        + INSTRUCTIONS
     ),
 )
 
@@ -49,8 +47,14 @@ mcp = MCPServer(
         "with the list of documents that were searched. Never guesses."
     ),
 )
+@refusable
 def ask(question: str) -> dict:
-    """Look the question up and return the verdict envelope."""
+    """Look the question up and return the verdict envelope.
+
+    @refusable comes from mcp-refusal: if the lookup raises, the caller gets a
+    CANNOT_CONCLUDE envelope naming what failed, instead of a protocol error
+    that a voice assistant would have to paper over.
+    """
     return sources.ask(question).to_dict()
 
 
@@ -75,6 +79,7 @@ def say(question: str) -> str:
         "can tell whether a refusal means 'not true' or 'not loaded'."
     ),
 )
+@refusable
 def list_sources() -> dict:
     docs = sources.load()
     return {

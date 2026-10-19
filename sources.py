@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from verdict import Answer, Assay, answered, refused
+from mcp_refusal import Answer, Assay, answered, refused
 
 DOCS_DIR = Path(__file__).parent / "documents"
 
