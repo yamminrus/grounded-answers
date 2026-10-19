@@ -1,0 +1,8 @@
+anyio==4.15.1
+httpx2==2.14.0
+mcp==2.3.0
+mcp-types==2.3.0
+pydantic==2.14.1
+pydantic_core==2.50.1
+starlette==1.9.0
+uvicorn==0.54.0

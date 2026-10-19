@@ -1,0 +1,128 @@
+"""An MCP server that can refuse.
+
+Self-hosted, Streamable HTTP, for the Alexa+ track of the Amazon Developer
+Hackathon 2026.
+
+Run it:
+
+    python server.py            # Streamable HTTP on 127.0.0.1:8000/mcp
+    python server.py --stdio    # stdio, for a local MCP client
+
+Why it exists: a voice assistant cannot show a citation. Every answer and
+every refusal arrives in the same confident voice, and the listener has no way
+to tell them apart. This server makes the difference audible. It answers only
+from documents the household owns, and when it cannot, it says what it looked
+in rather than inventing something plausible.
+"""
+
+from __future__ import annotations
+
+import sys
+
+from mcp.server.mcpserver import MCPServer
+
+import sources
+from verdict import Assay, refused
+
+mcp = MCPServer(
+    name="grounded-answers",
+    title="Grounded Answers",
+    version="0.1.0",
+    instructions=(
+        "Answers household questions ONLY from the household's own documents. "
+        "Every reply carries a verdict of ANSWERED or REFUSED, the source it "
+        "rested on, and the list of places that were searched. "
+        "A REFUSED verdict is a successful result, not an error: it means "
+        "nothing in the documents supports an answer. Read the 'spoken' field "
+        "aloud as-is. Do not fill a refusal in with your own knowledge, and do "
+        "not drop the source when you read an answer out."
+    ),
+)
+
+
+@mcp.tool(
+    name="ask",
+    title="Ask the household documents",
+    description=(
+        "Answer a question from the household's own documents. Returns "
+        "ANSWERED with the source and the exact line it came from, or REFUSED "
+        "with the list of documents that were searched. Never guesses."
+    ),
+)
+def ask(question: str) -> dict:
+    """Look the question up and return the verdict envelope."""
+    return sources.ask(question).to_dict()
+
+
+@mcp.tool(
+    name="say",
+    title="What to read aloud",
+    description=(
+        "The same lookup as 'ask', returned as one sentence meant to be spoken "
+        "verbatim. An answer names its source in the same breath; a refusal "
+        "says what was searched."
+    ),
+)
+def say(question: str) -> str:
+    return sources.ask(question).spoken()
+
+
+@mcp.tool(
+    name="sources",
+    title="What I can see",
+    description=(
+        "List the documents this server is able to answer from, so a person "
+        "can tell whether a refusal means 'not true' or 'not loaded'."
+    ),
+)
+def list_sources() -> dict:
+    docs = sources.load()
+    return {
+        "count": len(docs),
+        "documents": [{"name": d.name, "lines": len(d.lines)} for d in docs],
+        "note": (
+            "These are the only things I can answer from. If something is not "
+            "here, I will refuse rather than guess."
+        ),
+    }
+
+
+@mcp.tool(
+    name="why_refused",
+    title="Why that was refused",
+    description=(
+        "Explain a refusal in full: every document searched and how many lines "
+        "in each one touched the question. Use this when someone asks why the "
+        "assistant would not answer."
+    ),
+)
+def why_refused(question: str) -> dict:
+    result = sources.ask(question)
+    if result.verdict == "ANSWERED":
+        return {
+            "verdict": "ANSWERED",
+            "note": "That question was not refused.",
+            "source": result.source,
+            "spoken": result.spoken(),
+        }
+    return {
+        "verdict": "REFUSED",
+        "because": result.because,
+        "checked": [a.__dict__ for a in result.checked],
+        "spoken": result.spoken(),
+    }
+
+
+def _port() -> int:
+    if "--port" in sys.argv:
+        return int(sys.argv[sys.argv.index("--port") + 1])
+    return 8000
+
+
+if __name__ == "__main__":
+    if "--stdio" in sys.argv:
+        mcp.run(transport="stdio")
+    else:
+        # Streamable HTTP is what the Alexa+ track requires. Bound to loopback
+        # by default; put a TLS terminator in front of it to expose it.
+        mcp.run(transport="streamable-http", host="127.0.0.1", port=_port())

@@ -1,0 +1,19 @@
+LICENSE NOT CHOSEN YET.
+
+This is deliberate and it is a founder decision, not an oversight.
+
+Most competitions require a public repository under an open source licence.
+Choosing one is a legal act with consequences that outlive the competition:
+
+  MIT / Apache-2.0   anyone may use this commercially, including a competitor,
+                     with no obligation to share anything back. Apache-2.0 adds
+                     an express patent grant, which matters if any of this is
+                     ever patented.
+  AGPL-3.0           anyone offering this as a network service must publish
+                     their changes. The strongest copyleft, and the one most
+                     likely to deter a company from adopting it.
+  No licence         default copyright applies, nobody may legally use it, and
+                     most competitions will reject the submission.
+
+Decide before the first public push, not after. A licence added later does not
+retroactively cover what people already took.
