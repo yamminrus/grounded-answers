@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grounded Answers</title>
+<style>
+  :root{
+    --bg:#070b12; --panel:#0e1621; --line:#1d2a3a;
+    --fg:#e8eef6; --dim:#8296ad; --dimmer:#55657a;
+    --cyan:#31c3e8; --green:#4fc08d; --amber:#e0a33e; --red:#e2645c;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:
+      radial-gradient(900px 500px at 50% -8%, rgba(49,195,232,.10), transparent 70%),
+      var(--bg);
+    color:var(--fg); min-height:100vh;
+    font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:28px 16px 60px;
+  }
+  .wrap{max-width:860px;margin:0 auto}
+  header{text-align:center;margin-bottom:26px}
+  .ring{
+    width:54px;height:54px;border-radius:50%;margin:0 auto 14px;
+    border:3px solid var(--cyan);
+    box-shadow:0 0 26px rgba(49,195,232,.45), inset 0 0 14px rgba(49,195,232,.25);
+  }
+  h1{font-size:23px;font-weight:600;letter-spacing:.2px}
+  .sub{color:var(--dim);font-size:14px;margin-top:5px}
+  .note{
+    margin:0 auto 22px;max-width:620px;text-align:center;
+    color:var(--dimmer);font-size:13px;line-height:1.6;
+  }
+  .ask{display:flex;gap:9px;margin-bottom:14px}
+  input{
+    flex:1;background:var(--panel);border:1px solid var(--line);color:var(--fg);
+    border-radius:10px;padding:13px 15px;font-size:15px;font-family:inherit;
+  }
+  input:focus{outline:none;border-color:var(--cyan)}
+  button{
+    background:var(--cyan);color:#06222c;border:0;border-radius:10px;
+    padding:13px 20px;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;
+  }
+  button:disabled{opacity:.5;cursor:default}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:24px}
+  .chip{
+    background:var(--panel);border:1px solid var(--line);color:var(--dim);
+    border-radius:999px;padding:6px 13px;font-size:13px;cursor:pointer;
+  }
+  .chip:hover{border-color:var(--cyan);color:var(--fg)}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:22px;margin-bottom:16px;
+  }
+  .badge{
+    display:inline-block;font:600 11px/1 ui-monospace,monospace;letter-spacing:1.6px;
+    padding:6px 11px;border-radius:5px;margin-bottom:14px;
+  }
+  .ANSWERED{background:rgba(79,192,141,.14);color:var(--green);border:1px solid rgba(79,192,141,.4)}
+  .REFUSED{background:rgba(224,163,62,.14);color:var(--amber);border:1px solid rgba(224,163,62,.4)}
+  .CANNOT_CONCLUDE{background:rgba(226,100,92,.14);color:var(--red);border:1px solid rgba(226,100,92,.4)}
+
+  .heard-label{
+    font:600 11px/1 ui-monospace,monospace;letter-spacing:1.6px;
+    color:var(--dimmer);margin-bottom:9px;
+  }
+  .heard{font-size:20px;line-height:1.5}
+
+  .unheard{
+    margin-top:20px;padding-top:18px;border-top:1px dashed var(--line);
+  }
+  .unheard .heard-label{color:var(--cyan)}
+  .trail{list-style:none;margin-top:10px}
+  .trail li{
+    display:flex;justify-content:space-between;gap:14px;
+    padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);
+    font:13px/1.5 ui-monospace,monospace;color:var(--dim);
+  }
+  .hits{color:var(--fg)}
+  .hits.zero{color:var(--dimmer)}
+  .nope{color:var(--red)}
+  .src{margin-top:12px;font:13px/1.5 ui-monospace,monospace;color:var(--green)}
+  .err{color:var(--red);font-size:14px}
+  .foot{margin-top:30px;color:var(--dimmer);font-size:12.5px;line-height:1.7;text-align:center}
+  code{font-family:ui-monospace,monospace;color:var(--cyan)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="ring"></div>
+    <h1>Grounded Answers</h1>
+    <div class="sub">A simulated Alexa+ surface, speaking real MCP</div>
+  </header>
+
+  <p class="note">
+    This page is a Model Context Protocol client. Every question below is a real
+    <code>tools/call</code> over Streamable HTTP to the server running in this
+    process. Nothing here is mocked.
+  </p>
+
+  <div class="ask">
+    <input id="q" placeholder="Ask about the household documents…"
+           value="when does the boiler warranty expire" autocomplete="off">
+    <button id="go">Ask</button>
+  </div>
+
+  <div class="chips" id="chips"></div>
+  <div id="out"></div>
+
+  <p class="foot">
+    The point: in speech you cannot see a citation. A grounded answer and a
+    confident guess arrive in the same voice.<br>
+    So this server tells you which one you are hearing, and what it looked in.
+  </p>
+</div>
+
+<script>
+const EXAMPLES = [
+  "when does the boiler warranty expire",
+  "how much is the rent",
+  "what does error E18 mean",
+  "can I keep a cat",
+  "what is the wifi password",
+  "who won the world cup in 1998",
+];
+
+const out = document.getElementById('out');
+const qEl = document.getElementById('q');
+const goEl = document.getElementById('go');
+
+const chips = document.getElementById('chips');
+EXAMPLES.forEach(e => {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.textContent = e;
+  b.onclick = () => { qEl.value = e; ask(); };
+  chips.appendChild(b);
+});
+
+// --- a minimal MCP client, in the browser -----------------------------------
+let sessionId = null, nextId = 1;
+
+async function rpc(method, params) {
+  const headers = {
+    'Content-Type': 'application/json',
+    // Streamable HTTP requires the client to accept both shapes.
+    'Accept': 'application/json, text/event-stream',
+  };
+  if (sessionId) headers['Mcp-Session-Id'] = sessionId;
+
+  const body = { jsonrpc: '2.0', method, params };
+  const isNotification = method.startsWith('notifications/');
+  if (!isNotification) body.id = nextId++;
+
+  const res = await fetch('/mcp', { method: 'POST', headers, body: JSON.stringify(body) });
+  const sid = res.headers.get('Mcp-Session-Id');
+  if (sid) sessionId = sid;
+  if (isNotification) return null;
+
+  const text = await res.text();
+  if (!text) return null;
+  // json_response mode returns plain JSON; tolerate an SSE frame anyway.
+  const payload = text.startsWith('data:')
+    ? JSON.parse(text.split('\n').find(l => l.startsWith('data:')).slice(5))
+    : JSON.parse(text);
+  if (payload.error) throw new Error(payload.error.message || 'MCP error');
+  return payload.result;
+}
+
+async function connect() {
+  if (sessionId) return;
+  await rpc('initialize', {
+    protocolVersion: '2025-11-25',
+    capabilities: {},
+    clientInfo: { name: 'grounded-answers-demo', version: '0.1.0' },
+  });
+  await rpc('notifications/initialized', {});
+}
+
+function render(env) {
+  const v = env.verdict || 'CANNOT_CONCLUDE';
+  const checked = env.checked || [];
+  const trail = checked.map(a => {
+    const ran = a.ran !== false;
+    const right = !ran
+      ? `<span class="nope">could not check</span>`
+      : `<span class="hits ${a.hits ? '' : 'zero'}">${a.hits} ${a.hits === 1 ? 'match' : 'matches'}</span>`;
+    return `<li><span>${a.looked_in || a.name}</span>${right}</li>`;
+  }).join('');
+
+  out.innerHTML = `
+    <div class="card">
+      <span class="badge ${v}">${v.replace('_', ' ')}</span>
+      <div class="heard-label">WHAT YOU HEAR</div>
+      <div class="heard">${env.spoken || env.answer || ''}</div>
+      ${env.source ? `<div class="src">source · ${env.source}</div>` : ''}
+      <div class="unheard">
+        <div class="heard-label">WHAT A LISTENER CANNOT SEE</div>
+        <ul class="trail">${trail || '<li><span>nothing was searched</span></li>'}</ul>
+      </div>
+    </div>`;
+}
+
+async function ask() {
+  const q = qEl.value.trim();
+  if (!q) return;
+  goEl.disabled = true;
+  out.innerHTML = `<div class="card"><div class="heard-label">ASKING…</div></div>`;
+  try {
+    await connect();
+    const r = await rpc('tools/call', { name: 'ask', arguments: { question: q } });
+    let env = r.structuredContent;
+    if (!env) {
+      const t = (r.content || []).map(c => c.text || '').join('');
+      env = JSON.parse(t);
+    }
+    render(env);
+  } catch (e) {
+    out.innerHTML = `<div class="card"><span class="badge CANNOT_CONCLUDE">CANNOT CONCLUDE</span>
+      <div class="heard-label">WHAT YOU HEAR</div>
+      <div class="heard">I do not know, and I could not find out.</div>
+      <div class="unheard"><div class="heard-label">WHY</div>
+      <p class="err">${e.message}</p></div></div>`;
+  } finally {
+    goEl.disabled = false;
+  }
+}
+
+goEl.onclick = ask;
+qEl.addEventListener('keydown', e => { if (e.key === 'Enter') ask(); });
+ask();
+</script>
+</body>
+</html>

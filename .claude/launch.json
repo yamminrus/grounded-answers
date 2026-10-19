@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "grounded-answers",
+      "runtimeExecutable": "./.venv/bin/python",
+      "runtimeArgs": ["server.py", "--demo", "--port", "8123"],
+      "port": 8123
+    }
+  ]
+}

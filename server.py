@@ -124,9 +124,34 @@ def _port() -> int:
     return 8000
 
 
+def _demo_app(port: int):
+    """The MCP app, plus a page that speaks MCP to it from the browser.
+
+    json_response=True so the transport is plain request/response JSON. SSE is
+    the thing most likely to break behind nginx and Cloudflare, both of which
+    buffer event streams, and it would break in the one place it cannot be
+    debugged. See DEPLOY.md.
+    """
+    from pathlib import Path
+
+    from starlette.responses import FileResponse
+    from starlette.routing import Route
+
+    page = Path(__file__).parent / "demo" / "index.html"
+    app = mcp.streamable_http_app(json_response=True)
+    app.routes.append(Route("/", lambda _req: FileResponse(page)))
+    return app
+
+
 if __name__ == "__main__":
     if "--stdio" in sys.argv:
         mcp.run(transport="stdio")
+    elif "--demo" in sys.argv:
+        import uvicorn
+
+        port = _port()
+        print(f"  Grounded Answers: http://127.0.0.1:{port}/   (MCP at /mcp)")
+        uvicorn.run(_demo_app(port), host="127.0.0.1", port=port, log_level="warning")
     else:
         # Streamable HTTP is what the Alexa+ track requires. Bound to loopback
         # by default; put a TLS terminator in front of it to expose it.
