@@ -5,7 +5,7 @@ Filled in per competition. Nothing here claims to be ready until it is.
 | requirement | status |
 |---|---|
 | public repository | |
-| open source licence chosen and in LICENSE | |
+| open source licence chosen and in LICENSE | **MIT, founder ruling 2026-10-20** |
 | demo video, under the stated limit | |
 | live demo link or runnable instructions | |
 | text description of features | |
